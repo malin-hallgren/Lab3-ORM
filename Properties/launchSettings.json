@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "SchoolDb2App": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "connectionString": "Data Source=MALINSDESKTOP25;Database=SchoolDB2;Integrated Security=True;Trust Server Certificate=True;"
+      }
+    }
+  }
+}
