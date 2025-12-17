@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SchoolDb2App.Data;
 using SchoolDb2App.IsThisAController;
+using SchoolDb2App.IsThisAController.Menus;
 using SchoolDb2App.Models;
 using System;
 using System.Collections.Generic;
@@ -17,6 +18,8 @@ namespace EFCodealong2.IsThisAController.Menus
             "Add Student",
             "Show Employees",
             "Add Employee",
+            "Add Course",
+            "Grades Management",
             "Exit"
             // Expansion ideas: grade statistics, start course, set grades, alarm list (failing students)
         };
@@ -51,6 +54,12 @@ namespace EFCodealong2.IsThisAController.Menus
                         MenuDriver.ReturnToMenu();
                         break;
                     case 4:
+
+                    case 5:
+                        GradesMenu.Run(context);
+                        MenuDriver.BackToSameMenu();
+                        break;
+                    case 6:
                         Environment.Exit(0);
                         break;
                 }
