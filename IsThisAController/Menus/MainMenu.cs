@@ -1,4 +1,5 @@
-﻿using SchoolDb2App.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using SchoolDb2App.Data;
 using SchoolDb2App.IsThisAController;
 using SchoolDb2App.Models;
 using System;
@@ -20,7 +21,6 @@ namespace EFCodealong2.IsThisAController.Menus
             // Expansion ideas: grade statistics, start course, set grades, alarm list (failing students)
         };
 
-
         public static void Run()
         {
             using var context = new SchoolDb2Context();
@@ -33,111 +33,28 @@ namespace EFCodealong2.IsThisAController.Menus
                 {
                     case 0:
                         ShowStudents(context.Students.ToList(), context);
-
-                        Console.WriteLine("\nPress any key to return to main menu...");
-                        Console.ReadKey();
+                        MenuDriver.ReturnToMenu();
                         break;
                     case 1: //Take input and then create a student object to add to DB
-                        string studentFirstName = InputHelpers.ValidString("Input Student First Name");
-                        string studentLastName = InputHelpers.ValidString("Input Student Last Name");
-                        string ssn = InputHelpers.ValidString("Input Student SSN");
-                        int studentClass = MenuDriver.Choice(context.Classes.Select(c => c.ClassName).ToList(), "Select Class") + 1;
-
-                        var newStudent = new Student
-                        {
-                            StudentFirstName = studentFirstName,
-                            StudentLastName = studentLastName,
-                            StudentSsn = ssn,
-                            StudentClass = studentClass
-                        };
-
-                        context.Students.Add(newStudent);
-                        context.SaveChanges();
-                        var students = context.Students.ToList();
-
-                        Console.WriteLine("\nPress any key to return to main menu...");
-                        Console.ReadKey();
+                        CreateStudent(context);
+                        MenuDriver.ReturnToMenu();
                         break;
                     case 2:
                         ShowEmployees(context.Employees.ToList(), context);
-
-                        Console.WriteLine("\nPress any key to return to main menu...");
-                        Console.ReadKey();
+                        MenuDriver.ReturnToMenu();
                         break;
-                    case 3: //take input to create an mployee and add them to the db
-                        string employeeFirstName = InputHelpers.ValidString("Input Employee First Name");
-                        string employeeLastName = InputHelpers.ValidString("Input Employee Last Name");
-                        int employeeSalary = InputHelpers.ValidInt("Input Employee Salary");
-
-                        var newEmployee = new Employee
-                        {
-                            EmployeeFirstName = employeeFirstName,
-                            EmployeeLastName = employeeLastName,
-                            EmployeeSalary = employeeSalary,
-                            EmployeeStartDate = DateOnly.FromDateTime(DateTime.Now)
-                        };
-
-                        context.Employees.Add(newEmployee);
-                        context.SaveChanges();
-
+                    case 3: //take input to create an employee and add them to the db
+                        var newEmployee = CreateEmployee(context);
                         Console.Clear();
-                        var roles = context.Roles.ToList();
-                        var roleMenu = roles.Select(r => r.RoleName).ToList();
-                        roleMenu.Add("Finish Role Selection");
-
-                        var selectedRoles = new List<int>();
-                        bool selectingRoles = true;
-
-                        while (selectingRoles)
-                        {
-                            int selectedRole = MenuDriver.Choice(roleMenu, "Select Role for Employee"); //+1 to match RoleId in DB
-                            if (selectedRole == roleMenu.Count - 1)
-                            {
-                                if(selectedRoles.Count == 0)
-                                {
-                                    Console.WriteLine("Employee must have at least one role.\nPress ENTER to return to role selection...");
-                                    Console.ReadLine();
-                                    Console.Clear();
-                                    continue;
-                                }
-
-                                selectingRoles = false;
-                            }
-                            else if (selectedRoles.Contains(selectedRole))
-                            {
-                                Console.WriteLine("This role has already been selected.\nPress Enter to return to role selection..."); //could I colour already selected roles?
-                                Console.ReadLine();
-                                Console.Clear();
-                                continue;
-                            }
-                            else
-                            {
-                                selectedRoles.Add(selectedRole);
-                            }
-                        }
-
-                        foreach (var role in selectedRoles)
-                        {
-                            var newEmployeeRole = new EmployeeRole
-                            {
-                                EmployeeId = newEmployee.EmployeeId,
-                                RoleId = roles[role].RoleId
-                            };
-                            context.EmployeeRoles.Add(newEmployeeRole);
-                        }
-                        context.SaveChanges();
-
-                        PrintEmployee(context.Employees.ToList(), roles, context.EmployeeRoles.ToList());
-
-                        Console.WriteLine("\nPress any key to return to main menu...");
-                        Console.ReadKey();
+                        PickRole(context, newEmployee);
+                        PrintEmployee(context.Employees.ToList(), context);
+                        MenuDriver.ReturnToMenu();
                         break;
                     case 4:
                         Environment.Exit(0);
                         break;
                 }
             }
-
         }
 
         private static void ShowStudents(List<Student> students, SchoolDb2Context context)
@@ -202,6 +119,25 @@ namespace EFCodealong2.IsThisAController.Menus
             };
         }
 
+        private static void CreateStudent(SchoolDb2Context context)
+        {
+            var classes = context.Classes.ToList();
+            string studentFirstName = InputHelpers.ValidString("Input Student First Name");
+            string studentLastName = InputHelpers.ValidString("Input Student Last Name");
+            string ssn = InputHelpers.ValidString("Input Student SSN");
+            int studentClassChoice = MenuDriver.Choice(classes.Select(c => c.ClassName).ToList(), "Select Class");
+
+            var newStudent = new Student
+            {
+                StudentFirstName = studentFirstName,
+                StudentLastName = studentLastName,
+                StudentSsn = ssn,
+                StudentClass = classes.Find(c => c.ClassId == classes[studentClassChoice].ClassId)?.ClassId
+            };
+
+            context.Students.Add(newStudent);
+            context.SaveChanges();
+        }
         private static void ShowEmployees(List<Employee> employees, SchoolDb2Context context)
         {
             var displayMode = new List<string>
@@ -248,11 +184,77 @@ namespace EFCodealong2.IsThisAController.Menus
                     return;
             }
 
-            PrintEmployee(filteredEmployees, roles, context.EmployeeRoles.ToList());
+            PrintEmployee(filteredEmployees, context);
         }
 
-         
+        private static Employee CreateEmployee(SchoolDb2Context context)
+        {
+            string employeeFirstName = InputHelpers.ValidString("Input Employee First Name");
+            string employeeLastName = InputHelpers.ValidString("Input Employee Last Name");
+            int employeeSalary = InputHelpers.ValidInt("Input Employee Salary");
 
+            var newEmployee = new Employee
+            {
+                EmployeeFirstName = employeeFirstName,
+                EmployeeLastName = employeeLastName,
+                EmployeeSalary = employeeSalary,
+                EmployeeStartDate = DateOnly.FromDateTime(DateTime.Now)
+            };
+
+            context.Employees.Add(newEmployee);
+            context.SaveChanges();
+
+            return newEmployee;
+        }
+
+        private static void PickRole(SchoolDb2Context context, Employee newEmployee)
+        {
+            var roles = context.Roles.ToList();
+            var roleMenu = roles.Select(r => r.RoleName).ToList();
+            roleMenu.Add("Finish Role Selection");
+
+            var selectedRoles = new List<int>();
+            bool selectingRoles = true;
+
+            while (selectingRoles)
+            {
+                int selectedRole = MenuDriver.Choice(roleMenu, "Select Role for Employee");
+                if (selectedRole == roleMenu.Count - 1)
+                {
+                    if (selectedRoles.Count == 0)
+                    {
+                        Console.WriteLine("Employee must have at least one role.\nPress ENTER to return to role selection...");
+                        Console.ReadLine();
+                        Console.Clear();
+                        continue;
+                    }
+
+                    selectingRoles = false;
+                }
+                else if (selectedRoles.Contains(selectedRole))
+                {
+                    Console.WriteLine("This role has already been selected.\nPress Enter to return to role selection..."); //could I colour already selected roles?
+                    Console.ReadLine();
+                    Console.Clear();
+                    continue;
+                }
+                else
+                {
+                    selectedRoles.Add(selectedRole);
+                }
+            }
+
+            foreach (var role in selectedRoles)
+            {
+                var newEmployeeRole = new EmployeeRole
+                {
+                    EmployeeId = newEmployee.EmployeeId,
+                    RoleId = roles[role].RoleId
+                };
+                context.EmployeeRoles.Add(newEmployeeRole);
+            }
+            context.SaveChanges();
+        }
         private static List<Employee> SortEmployees(int sortingMode, List<Employee> employees)
         {
             return sortingMode switch
@@ -265,20 +267,32 @@ namespace EFCodealong2.IsThisAController.Menus
             };
         }
 
-        private static void PrintEmployee(List<Employee> employeesToPrint, List<Role> roles, List<EmployeeRole> employeeRoles)
+        private static void PrintEmployee(List<Employee> employeesToPrint, SchoolDb2Context context)
         {
             Console.Clear();
             Console.WriteLine("\x1b[3J");
+            var toPrint = new List<Employee>();
 
             for (int i = 0; i < employeesToPrint.Count; i++)
             {
                 // Get all roles for a single employee filteredEmployees[i], by checking all employeeIDs in employeeRoles (er) matching current, then checks roles (r) for the names
-                string employeeRolesString = string.Join(", ", employeeRoles
-                                            .Where(er => er.EmployeeId == employeesToPrint[i].EmployeeId)
-                                            .Select(er => roles.FirstOrDefault(r => r.RoleId == er.RoleId)?.RoleName));
 
-                Console.WriteLine($"[{i + 1}]. {employeesToPrint[i].EmployeeFirstName} {employeesToPrint[i].EmployeeLastName} - " +
-                                  $"Role: {employeeRolesString}");
+                //string employeeRolesString = string.Join(", ", employeeRoles
+                //                            .Where(er => er.EmployeeId == employeesToPrint[i].EmployeeId)
+                //                            .Select(er => roles.FirstOrDefault(r => r.RoleId == er.RoleId)?.RoleName));
+
+                toPrint = context.Employees
+                    .Include(e => e.EmployeeRoles)
+                    .ThenInclude(er => er.Role)
+                    .Where(e => e.EmployeeId == employeesToPrint[i].EmployeeId)
+                    .ToList();
+            }
+
+            foreach (var emp in employeesToPrint)
+            {
+                string empRole = string.Join(", ", emp.EmployeeRoles.Select(er => er.Role.RoleName));
+
+                Console.WriteLine($"{emp.EmployeeFirstName,-5} {emp.EmployeeLastName,-25} {empRole}");
             }
         }
     }

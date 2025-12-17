@@ -93,11 +93,11 @@ public partial class SchoolDb2Context : DbContext
             entity.Property(e => e.EmployeeId).HasColumnName("employeeId");
             entity.Property(e => e.RoleId).HasColumnName("roleId");
 
-            entity.HasOne(d => d.Employee).WithMany()
+            entity.HasOne(d => d.Employee).WithMany(p => p.EmployeeRoles)
                 .HasForeignKey(d => d.EmployeeId)
                 .HasConstraintName("FK__EmployeeR__emplo__3A81B327");
 
-            entity.HasOne(d => d.Role).WithMany()
+            entity.HasOne(d => d.Role).WithMany(p => p.EmployeeRoles)
                 .HasForeignKey(d => d.RoleId)
                 .HasConstraintName("FK__EmployeeR__roleI__3B75D760");
         });

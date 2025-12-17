@@ -18,4 +18,6 @@ public partial class Employee
     public virtual ICollection<Class> Classes { get; set; } = new List<Class>();
 
     public virtual ICollection<Course> Courses { get; set; } = new List<Course>();
+
+    public virtual ICollection<EmployeeRole> EmployeeRoles { get; set; } = new List<EmployeeRole>();
 }

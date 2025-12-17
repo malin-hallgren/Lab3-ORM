@@ -74,5 +74,11 @@ namespace EFCodealong2.IsThisAController.Menus
             Console.Write(new string(' ', Console.BufferWidth));
             Console.SetCursorPosition(0, 0);
         }
+
+        public static void ReturnToMenu()
+        {
+            Console.WriteLine("\nPress any key to return to the menu...");
+            Console.ReadKey(true);
+        }
     }
 }
