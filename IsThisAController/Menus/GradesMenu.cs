@@ -1,5 +1,4 @@
-﻿using EFCodealong2.IsThisAController.Menus;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SchoolDb2App.Data;
 using SchoolDb2App.Models;
 using System;
@@ -15,8 +14,7 @@ namespace SchoolDb2App.IsThisAController.Menus
             "Show Alarm List",
             "Show Grades by Course",
             "Show Grades by Class",
-            "Show Grade Statistics",
-            "Grade Course",
+            "Set Grade",
             "Back to Main Menu"
         };
 
@@ -33,13 +31,13 @@ namespace SchoolDb2App.IsThisAController.Menus
 
                 switch (selection)
                 {
-                    case 0:
+                    case 0: //Alarm List
                         var failingGrades = context.Grades.ToList().Where(g => g.GradeScaleId == 6).ToList();
                         Console.WriteLine("Students in need of support to pass:\n");
-                        PrintStudentGrades(failingGrades, students, courses, gradeScales, classes);
-                        MenuDriver.BackToSameMenu();
+                        PrintStudentGrades(failingGrades, context);
+                        MenuDriver.ReturnToMenu();
                         break;
-                    case 1:
+                    case 1: //Grades by Course
                         List<string> courseNames = courses.Select(c => c.CourseName).ToList();
 
                         int selectedCourse = MenuDriver.Choice(courseNames, "Select Course");
@@ -47,45 +45,93 @@ namespace SchoolDb2App.IsThisAController.Menus
                         List<Grade> courseGrade = context.Grades.Where(g => g.CourseId == courseToView.CourseId).ToList();
 
                         Console.WriteLine($"All grades for {courseToView.CourseName}:\n");
-                        PrintStudentGrades(courseGrade, students, courses, gradeScales, classes);
+                        PrintStudentGrades(courseGrade, context);
 
-                        MenuDriver.BackToSameMenu();
+                        MenuDriver.ReturnToMenu();
                         break;
-                    case 2:
-                        int selectedClass = MenuDriver.Choice(classes, "Select Class");
-                        var classToView = classes[selectedClass];
-
-                        MenuDriver.BackToSameMenu();
+                    case 2: //Grades by Class
+                        int selectedClass = MenuDriver.Choice(classes.Select(c => c.ClassName).ToList(), "Select Class");
+                        var classToView = classes.FirstOrDefault(c => c.ClassName == classes[selectedClass].ClassName);
+                        var filteredStudents = students.Where(s => s.StudentClassNavigation == classToView).ToList();
+                        var filteredGrades = grades.Where(g => filteredStudents.Any(s => s.StudentId == g.StudentId)).ToList();
+                        PrintStudentGrades(filteredGrades, context);
+                        MenuDriver.ReturnToMenu();
                         break;
-                    case 3:
-                        MenuDriver.BackToSameMenu();
+                    case 3://Set Grade
+                        SetGrade(context, students, courses, grades);
+                        grades = context.Grades.ToList(); 
+                        MenuDriver.ReturnToMenu();
                         break;
                     case 4:
-                        MenuDriver.BackToSameMenu();
-                        break;
-                    case 5:
                         return;
                 }
             }
         }
 
-
-        //Can this use an include instead to also get the students with no grades?
-        private static void PrintStudentGrades(List<Grade> grades, List<Student> students, List<Course> courses, List<GradeScale> gradeScales, List<Class> classes)
+        private static void SetGrade(SchoolDb2Context context, List<Student> students, List<Course> courses, List<Grade> grades)
         {
-            foreach (var grade in grades)
+            var classToView = MainMenu.SelectClass(context);
+            var filteredStudents = students.Where(s => s.StudentClassNavigation == classToView).ToList();
+            var studentToGrade = MainMenu.SelectStudent(context, filteredStudents);
+            List<Course> filteredCourses = courses
+                .Where(c => !grades
+                .Any(g => g.StudentId == studentToGrade.StudentId && g.CourseId == c.CourseId))
+                .ToList();
+            
+            var courseToGrade = MainMenu.SelectCourse(context, filteredCourses);
+
+            string gradingHeader = $"Which shall be set for grade for {studentToGrade.StudentFirstName} {studentToGrade.StudentLastName} in {courseToGrade.CourseName}?";
+            var gradesMenu = context.GradeScales.Select(g => g.GradeLetter).ToList();
+            int gradeSelection = MenuDriver.Choice(gradesMenu, gradingHeader);
+            GradeScale gradeScaleToSet = context.GradeScales.FirstOrDefault(gs => gs.GradeLetter == gradesMenu[gradeSelection]);
+
+            using var transaction = context.Database.BeginTransaction();
+
+            try
             {
-                var student = students.FirstOrDefault(s => s.StudentId == grade.StudentId);
-                var course = courses.FirstOrDefault(c => c.CourseId == grade.CourseId);
-                var gradeScale = gradeScales.FirstOrDefault(g => g.GradeScaleId == grade.GradeScaleId);
-                var studentClass = classes.FirstOrDefault(c => c.ClassId == student?.StudentClass);
+                context.Grades.Add(new Grade
+                {
+                    StudentId = studentToGrade.StudentId,
+                    CourseId = courseToGrade.CourseId,
+                    GradeScaleId = gradeScaleToSet.GradeScaleId,
+                    GradeDate = DateOnly.FromDateTime(DateTime.Now)
+                });
 
-                string studentName = $"{student?.StudentFirstName ?? "Unknown"} {student?.StudentLastName ?? "Unknown"}";
-                string className = studentClass?.ClassName ?? "Unknown";
-                string courseName = course?.CourseName ?? "Unknown";
-                string gradeLetter = gradeScale?.GradeLetter ?? "?";
+                context.SaveChanges();
+                transaction.Commit();
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                throw new InvalidOperationException("Error setting grade.", ex);
+            }
+        }
 
-                Console.WriteLine($"{studentName,-20} {className,-10} {courseName,-20} {gradeLetter}");
+        private static void PrintStudentGrades(List<Grade> grades, SchoolDb2Context context)
+        {
+            var sortedGrades = grades.OrderBy(g => g.StudentId).ThenBy(g => g.CourseId).ToList();
+
+            Console.Clear();
+            Console.WriteLine("\x1b[3J");
+
+            foreach (var grade in sortedGrades)
+            {
+                var toPrint = context.Grades
+                    .Include(g => g.Student)
+                    .ThenInclude(s => s.StudentClassNavigation)
+                    .Include(g => g.Course)
+                    .Include(g => g.GradeScale)
+                    .Where(g => g.GradeId == grade.GradeId)
+                    .FirstOrDefault();
+
+                string studentName = toPrint?.Student?.StudentFirstName + " " + toPrint?.Student?.StudentLastName;
+
+                string studentGrade = $"{studentName, -20}" +
+                                     $"{toPrint?.Student?.StudentClassNavigation?.ClassName, -10}" +
+                                     $"{toPrint?.Course?.CourseName, -20}" +
+                                     $"{toPrint?.GradeScale?.GradeLetter ?? "Not yet set"}";
+
+                Console.WriteLine(studentGrade);
             }
         }
     }

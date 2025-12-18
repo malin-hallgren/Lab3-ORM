@@ -1,4 +1,4 @@
-﻿using EFCodealong2.IsThisAController.Menus;
+﻿using SchoolDb2App.IsThisAController.Menus;
 
 namespace SchoolDb2App
 {

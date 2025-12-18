@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace EFCodealong2.IsThisAController.Menus
+namespace SchoolDb2App.IsThisAController.Menus
 {
     internal class MenuDriver
     {

@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Text;
 using static System.Collections.Specialized.BitVector32;
 
-namespace EFCodealong2.IsThisAController.Menus
+namespace SchoolDb2App.IsThisAController.Menus
 {
     internal class MainMenu
     {
@@ -18,7 +18,7 @@ namespace EFCodealong2.IsThisAController.Menus
             "Add Student",
             "Show Employees",
             "Add Employee",
-            "Add Course",
+            "Course Management",
             "Grades Management",
             "Exit"
             // Expansion ideas: grade statistics, start course, set grades, alarm list (failing students)
@@ -54,10 +54,12 @@ namespace EFCodealong2.IsThisAController.Menus
                         MenuDriver.ReturnToMenu();
                         break;
                     case 4:
-
+                        CourseMenu.Run(context);
+                        MenuDriver.ReturnToMenu();
+                        break;
                     case 5:
                         GradesMenu.Run(context);
-                        MenuDriver.BackToSameMenu();
+                        MenuDriver.ReturnToMenu();
                         break;
                     case 6:
                         Environment.Exit(0);
@@ -75,7 +77,7 @@ namespace EFCodealong2.IsThisAController.Menus
                 "Return to Main Menu"
             };
 
-            var sortingMode = new List<string>
+            var sortingOptions = new List<string>
             {
                 "Sort by First Name, Ascending",
                 "Sort by Last Name, Ascending",
@@ -92,28 +94,22 @@ namespace EFCodealong2.IsThisAController.Menus
             {
                 case 0:
                     Console.Clear();
-                    sortingSelection = MenuDriver.Choice(sortingMode, "Select Sorting Mode");
+                    sortingSelection = MenuDriver.Choice(sortingOptions, "Select Sorting Mode");
                     filteredStudents = SortStudents(sortingSelection, students);
                     break;
                 case 1:
                     Console.Clear();
-                    var classSelection = MenuDriver.Choice(context.Classes.Select(c => c.ClassName).ToList(), "Select Class") + 1;
-                    sortingSelection = MenuDriver.Choice(sortingMode, "Select Sorting Mode");
-                    filteredStudents = SortStudents(sortingSelection, students.Where(s => s.StudentClass == classSelection).ToList());
+                    var classToView = SelectClass(context);
+                    sortingSelection = MenuDriver.Choice(sortingOptions, "Select Sorting Mode");
+                    filteredStudents = SortStudents(sortingSelection, students.Where(s => s.StudentClassNavigation == classToView).ToList());
                     break;
                 case 2:
                     return;
             }
+           // PrintStudent(filteredStudents, context);
+            var selectedStudent = SelectStudent(context, filteredStudents);
+            PrintStudent(new List<Student> { selectedStudent }, context);
 
-            //this is to prevent the printed lists from overlapping with the previous list. Requries ANSI escape codes support in terminal.
-            Console.Clear();
-            Console.WriteLine("\x1b[3J");
-
-            for (int i = 0; i < filteredStudents.Count; i++)
-            {
-                Console.WriteLine($"[{i + 1}]. {filteredStudents[i].StudentFirstName} {filteredStudents[i].StudentLastName} - " +
-                                  $"Class: {context.Classes.FirstOrDefault(c => c.ClassId == filteredStudents[i].StudentClass)?.ClassName}");
-            }
         }
 
         private static List<Student> SortStudents(int sortingMode, List<Student> students)
@@ -126,6 +122,34 @@ namespace EFCodealong2.IsThisAController.Menus
                 3 => students.OrderByDescending(s => s.StudentLastName).ToList(),
                 _ => new List<Student>(students)
             };
+        }
+
+        public static void PrintStudent(List<Student> studentsToPrint, SchoolDb2Context context)
+        {
+            Console.Clear();
+            Console.WriteLine("\x1b[3J");
+
+            var studentClassGrades= context.Students
+                    .Include(s => s.StudentClassNavigation)
+                    .Include(s => s.Grades).ThenInclude(g => g.Course)
+                    .Include(s => s.Grades).ThenInclude(g => g.GradeScale)
+                    .Where(s => studentsToPrint.Select(st => st.StudentId).Contains(s.StudentId))
+                    .ToList();
+
+            foreach (var student in studentsToPrint)
+            {
+                string studentFullName = $"{student.StudentFirstName} {student.StudentLastName}"; 
+                //string studentClass = context.Classes.FirstOrDefault(c => c.ClassId == student.StudentClass)?.ClassName ?? "No Class Assigned";
+                Console.WriteLine($"{studentFullName, -24} {student.StudentClassNavigation.ClassName}\n");
+
+                var gradeList = new StringBuilder();
+                foreach (var grade in student.Grades)
+                {
+                    gradeList.Append($"{grade.Course.CourseName, -25}{grade.GradeScale.GradeLetter, -10}{grade.GradeDate}\n");
+                }
+                Console.WriteLine(gradeList.ToString());
+            }
+            Console.ReadKey(true);
         }
 
         private static void CreateStudent(SchoolDb2Context context)
@@ -280,29 +304,49 @@ namespace EFCodealong2.IsThisAController.Menus
         {
             Console.Clear();
             Console.WriteLine("\x1b[3J");
-            var toPrint = new List<Employee>();
+            var employeeIds = employeesToPrint.Select(e => e.EmployeeId).ToList();
 
-            for (int i = 0; i < employeesToPrint.Count; i++)
-            {
-                // Get all roles for a single employee filteredEmployees[i], by checking all employeeIDs in employeeRoles (er) matching current, then checks roles (r) for the names
-
-                //string employeeRolesString = string.Join(", ", employeeRoles
-                //                            .Where(er => er.EmployeeId == employeesToPrint[i].EmployeeId)
-                //                            .Select(er => roles.FirstOrDefault(r => r.RoleId == er.RoleId)?.RoleName));
-
-                toPrint = context.Employees
+            var employeesWithRoles = context.Employees
                     .Include(e => e.EmployeeRoles)
                     .ThenInclude(er => er.Role)
-                    .Where(e => e.EmployeeId == employeesToPrint[i].EmployeeId)
+                    .Where(e => employeeIds.Contains(e.EmployeeId))
                     .ToList();
-            }
 
-            foreach (var emp in employeesToPrint)
+            foreach (var emp in employeesWithRoles)
             {
                 string empRole = string.Join(", ", emp.EmployeeRoles.Select(er => er.Role.RoleName));
 
                 Console.WriteLine($"{emp.EmployeeFirstName,-5} {emp.EmployeeLastName,-25} {empRole}");
             }
+        }
+
+        public static Class SelectClass(SchoolDb2Context context)
+        {
+            var classSelection = MenuDriver.Choice(context.Classes.Select(c => c.ClassName).ToList(), "Select Class");
+            var classToView = context.Classes.FirstOrDefault(c => c.ClassId == context.Classes.ToList()[classSelection].ClassId);
+            return classToView; 
+        }
+
+        public static Student SelectStudent(SchoolDb2Context context, List<Student> filteredStudents)
+        {
+            var studentSelection = MenuDriver.Choice(filteredStudents.Select(s => s.StudentFirstName + " " + s.StudentLastName).ToList(), "Select Student");
+            var selectedStudent = filteredStudents.FirstOrDefault(s => s.StudentId == filteredStudents[studentSelection].StudentId);
+            return selectedStudent;
+        }
+
+        public static Course SelectCourse(SchoolDb2Context context, List<Course> filteredCourses)
+        {
+            var courseSelection = MenuDriver.Choice(filteredCourses.Select(c => c.CourseName).ToList(), "Select Course");
+            var courseToView = context.Courses.FirstOrDefault(c => c.CourseId == filteredCourses[courseSelection].CourseId);
+            return courseToView;
+        }
+
+        public static Employee SelectEmployee(SchoolDb2Context context, List<Employee> filteredEmployee)
+        {
+            var employeeSelection = MenuDriver.Choice(filteredEmployee.Select(e => e.EmployeeFirstName + " " + e.EmployeeLastName).ToList(), "Select Employee");
+            var selectedEmployee = filteredEmployee.FirstOrDefault(e => e.EmployeeId == filteredEmployee[employeeSelection].EmployeeId);
+            return selectedEmployee;
+
         }
     }
 }
