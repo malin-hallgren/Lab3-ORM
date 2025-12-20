@@ -21,7 +21,6 @@ namespace SchoolDb2App.IsThisAController.Menus
             "Course Management",
             "Grades Management",
             "Exit"
-            // Expansion ideas: grade statistics, start course, set grades, alarm list (failing students)
         };
 
         public static void Run()
@@ -106,7 +105,7 @@ namespace SchoolDb2App.IsThisAController.Menus
                 case 2:
                     return;
             }
-           // PrintStudent(filteredStudents, context);
+
             var selectedStudent = SelectStudent(context, filteredStudents);
             PrintStudent(new List<Student> { selectedStudent }, context);
 
@@ -139,7 +138,7 @@ namespace SchoolDb2App.IsThisAController.Menus
             foreach (var student in studentsToPrint)
             {
                 string studentFullName = $"{student.StudentFirstName} {student.StudentLastName}"; 
-                //string studentClass = context.Classes.FirstOrDefault(c => c.ClassId == student.StudentClass)?.ClassName ?? "No Class Assigned";
+
                 Console.WriteLine($"{studentFullName, -24} {student.StudentClassNavigation.ClassName}\n");
 
                 var gradeList = new StringBuilder();

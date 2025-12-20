@@ -68,6 +68,7 @@ namespace SchoolDb2App.IsThisAController.Menus
             }
         }
 
+        // Let's user select a student and a grade a course that they do not yet have a grade in
         private static void SetGrade(SchoolDb2Context context, List<Student> students, List<Course> courses, List<Grade> grades)
         {
             var classToView = MainMenu.SelectClass(context);
@@ -107,6 +108,7 @@ namespace SchoolDb2App.IsThisAController.Menus
             }
         }
 
+        //Prints students and their grade in a course, ordered by student ID and course ID
         private static void PrintStudentGrades(List<Grade> grades, SchoolDb2Context context)
         {
             var sortedGrades = grades.OrderBy(g => g.StudentId).ThenBy(g => g.CourseId).ToList();

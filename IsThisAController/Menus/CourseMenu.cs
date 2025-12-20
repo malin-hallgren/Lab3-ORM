@@ -39,6 +39,7 @@ namespace SchoolDb2App.IsThisAController.Menus
             }
         }
 
+        // prints course information, teacher and grade statistics
         private static void PrintCourseInformation(SchoolDb2Context context, Course course)
         {
             var courseWithEmployee = context.Courses
@@ -73,6 +74,7 @@ namespace SchoolDb2App.IsThisAController.Menus
                 + $"{"Lowest Grade:", -15}" + $"{gradeArray[2]:F2} ({letterGrades[2]:F2})");
         }
 
+        // calculates letter grade based on numeric grade
         private static char[] CalculateGrades(float[] grades)
         {
             char[] letterGrades = new char[grades.Length];
